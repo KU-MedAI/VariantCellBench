@@ -2,6 +2,12 @@
 
 ## Environment Setting
 
+### Conda Environment (Recommend)
+```bash
+conda env create -f sclambda.yml
+conda activate sclambda
+```
+
 ### Required Packages
 
 ```bash

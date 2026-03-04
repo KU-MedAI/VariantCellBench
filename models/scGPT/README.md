@@ -2,6 +2,12 @@
 
 ## Environment Setting
 
+### Conda Environment (Recommend)
+```bash
+conda env create -f rtd.yml
+conda activate rtd
+```
+
 ### Required Packages
 
 ```bash
