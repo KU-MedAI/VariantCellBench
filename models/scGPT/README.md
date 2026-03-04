@@ -89,26 +89,31 @@ Prediction Results: Evaluates the test set and outputs two AnnData objects in th
 
 ### 2. Inference
 
-Generate molecules for new DEG data using the trained model.
+Run inference on unseen datasets using the trained model checkpoint.
 
 ```bash
-python inference.py \
-    --model_checkpoint ./checkpoints/DEG2MOL_best_model.pth \
-    --data_type Perturb-seq \
-    --num_samples 100 \
-    --guidance_scale 3 \
+python run_inference.py \
+    --dataloader_path "/NFS_DATA/.../dataloader_[01].pkl" \
+    --adata_path "/NFS_DATA/.../perturb_processed_[01].h5ad" \
+    --metadata_adata_path "/NFS_DATA/.../perturb_processed_[01].h5ad" \
+    --pkl_path "/NFS_DATA/.../embedding_cache_variant_position_[esm_msa1_t12_100M_UR50S].pkl" \
+    --checkpoint_path "/NFS_DATA/.../best_model.pt" \
+    --model_config_path "../save/scGPT_human" \
+    --save_dir "/NFS_DATA/.../scGPT" \
+    --save_name "2026_0116_hct116_msa_diff_[01]" \
+    --embedding_key "DIFF"
 ```
 
 #### Key Parameters
 
-- `--data_type`: Data type (`KO`, `KD`, `Perturb-seq`)
+- `--metadata_adata_path`: Path to the AnnData file containing original metadata to map back to the predictions.
+- `--checkpoint_path`: Path to the fine-tuned model weights (`best_model.pt`).
+- `--embedding_key`: Specific key to extract from the variant embedding cache (Choices: `ALT`, `DIFF`).
+- `--save_dir`/ `--save_name`: Directory and prefix for the output prediction file.
 
 #### Output Files
 
-- **Training**: Checkpoint files are saved in `--save_dir`
-- **Testing/Inference**: Generated molecule dictionary is saved as a `.pkl` file
-  - Filename: `{data_type}_generated_molecules_dict_{guidance_scale}.pkl`
-  - Format: `{sample_name}_{idx}: {'generated_mols': [list of Mol objects]}`
+- **Inference output**: `{save_name}_pred.h5ad` saved in `--save_dir`.
 
 ### Model Architecture
 
