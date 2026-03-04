@@ -1,16 +1,3 @@
-'''
-python train_scgpt_perturb.py \
-    --dataloader_path "/NFS_DATA/samsung/database/gears/kim2023_hct116_[benchmark][3_3-fold]/dataloader/dataloader.pkl" \
-    --adata_path "/NFS_DATA/samsung/database/gears/kim2023_hct116_v3_single_variant/perturb_processed.h5ad" \
-    --pkl_path "/NFS_DATA/samsung/database/gears/kim2023_hct116_v3_single_variant/embedding_cache/embedding_cache_[ProtT5].pkl" \
-    --embedding_key "ALT" \
-    --load_model "../save/scGPT_human" \
-    --save_root "/NFS_DATA/samsung/scGPT/1207" \
-    --data_name "kim2023_hct116_1207" \
-    --epochs 100 \
-    --wandb_project "My_scGPT_Project"
-'''
-
 
 import json
 import os
@@ -44,10 +31,6 @@ from scgpt.tokenizer.gene_tokenizer import GeneVocab
 from scgpt.utils import set_seed, map_raw_id_to_vocab_id, compute_perturbation_metrics
 
 warnings.filterwarnings("ignore")
-
-# =============================================================================
-# Helper Functions & Classes
-# =============================================================================
 
 class FakePertData:
     def __init__(self, dataloader_dict, adata):

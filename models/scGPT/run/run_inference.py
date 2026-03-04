@@ -1,20 +1,3 @@
-'''
-python run_inference.py \
-    --dataloader_path "/NFS_DATA/samsung/database/gears/kim2023_hct116_[benchmark][clinvar]/dataloader/dataloader_[01].pkl" \
-    --adata_path "/NFS_DATA/samsung/database/gears/kim2023_hct116_[benchmark][clinvar]/perturb_processed_[01].h5ad" \
-    --metadata_adata_path "/NFS_DATA/samsung/database/gears/kim2023_hct116_[benchmark][clinvar]/perturb_processed_[01].h5ad" \
-    --pkl_path "/NFS_DATA/samsung/database/gears/embedding/embedding_cache_variant_position_[esm_msa1_t12_100M_UR50S].pkl" \
-    --checkpoint_path "/NFS_DATA/samsung/scGPT/1208/1_3-fold/hct116_MSA_DIFF/best_model.pt" \
-    --model_config_path "../save/scGPT_human" \
-    --save_dir "/NFS_DATA/samsung/database/benchmark_figure/ann_dataset_200/scGPT" \
-    --save_name "2026_0116_hct116_msa_diff_[01]" \
-    --embedding_key "DIFF"
-
-GPU 병렬 작업 수행
-conda activate rtd
-./run_batch.py
-'''
-
 
 import json
 import os
@@ -43,10 +26,6 @@ from scgpt.tokenizer.gene_tokenizer import GeneVocab
 from scgpt.utils import set_seed, map_raw_id_to_vocab_id
 
 warnings.filterwarnings("ignore")
-
-# =============================================================================
-# Helper Functions & Classes
-# =============================================================================
 
 class FakePertData:
     def __init__(self, dataloader_dict, adata):
