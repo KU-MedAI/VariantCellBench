@@ -33,10 +33,6 @@ def create_de_genes_dictionary(
     n_top_genes: int = 20,
     uns_key: str = 'rank_genes_groups_cov_all' # AnnData에 저장된 실제 키 이름 사용
 ) -> Dict:
-    """
-    adata.uns의 DEG 분석 결과로부터 {조건: [유전자 인덱스]} 딕셔너리를 생성합니다.
-    **수정: 사용자의 커스텀 데이터 구조에 맞게 로직 변경**
-    """
     print(f"INFO: Creating DE genes dictionary from 'adata.uns[{uns_key}]'...")
     if uns_key not in adata.uns:
         raise KeyError(f"'{uns_key}' 키를 adata.uns에서 찾을 수 없습니다.")
@@ -159,10 +155,6 @@ def compute_metrics(results: Dict) -> tuple[Dict, Dict]:
     return final_metrics, metrics_pert
 
 def get_control_expression(adata: ad.AnnData) -> np.ndarray:
-    """
-    adata에서 'ctrl' 샘플의 유전자 발현 평균을 반환합니다.
-    adata.X가 밀집 행렬(numpy.ndarray)이든 희소 행렬이든 모두 처리합니다.
-    """
     control_name = 'ctrl'
     if control_name not in adata.obs['condition'].unique():
         return np.zeros(adata.n_vars)
@@ -181,13 +173,11 @@ def deeper_analysis(adata: ad.AnnData, test_res: Dict, ctrl_expression: np.ndarr
 
     pert_metric = {}
 
-    ## in silico modeling and upperbounding
     obs_df = adata.obs[['condition', 'condition_name']].dropna()
     pert2pert_full_id = dict(obs_df.values)
     geneid2name = dict(zip(adata.var.index.values, adata.var['gene_name']))
     geneid2idx = dict(zip(adata.var.index.values, range(len(adata.var.index.values))))
 
-    # calculate mean expression for each condition
     ctrl = ctrl_expression.reshape(1, -1)
     
     if most_variable_genes is None:
@@ -204,7 +194,6 @@ def deeper_analysis(adata: ad.AnnData, test_res: Dict, ctrl_expression: np.ndarr
         full_pert_name = pert2pert_full_id[pert]
         if not full_pert_name:
             continue
-        # DEG 결과 전체 유전자 이름 리스트 가져오기
         if full_pert_name not in adata.uns[uns_key]:
             print(f"WARNING: No DEG results found for group '{full_pert_name}'. Skipping.")
             continue
@@ -219,11 +208,10 @@ def deeper_analysis(adata: ad.AnnData, test_res: Dict, ctrl_expression: np.ndarr
         if len(de_idx) == 0:
              print(f"WARNING: Group '{pert}' has 0 matched DEG indices. Skipping.")
              continue
-        # ==========================================================
 
         pert_idx = np.where(test_res['pert_cat'] == pert)[0]
         pert_idx_de = np.where(test_res['pert_cat_de'] == pert)[0]
-        if len(pert_idx_de) == 0: continue # 해당 조건에 DE 유전자 결과가 없으면 건너뛰기 
+        if len(pert_idx_de) == 0: continue
         pred_mean = mean_nonzero(test_res['pred_de'][pert_idx_de], axis=0).reshape(-1,)
         true_mean = mean_nonzero(test_res['truth_de'][pert_idx_de], axis=0).reshape(-1,)
         
@@ -289,7 +277,7 @@ def deeper_analysis(adata: ad.AnnData, test_res: Dict, ctrl_expression: np.ndarr
                 pert_metric[pert]['std_sigma'] = np.std(sigma)
                 pert_metric[pert]['frac_sigma_below_1'] = 1 - len(np.where(sigma > 1)[0])/len(zero_idx)
                 pert_metric[pert]['frac_sigma_below_2'] = 1 - len(np.where(sigma > 2)[0])/len(zero_idx)
-        ## correlation on delta
+
         p_idx = np.where(test_res['pert_cat'] == pert)[0]
 
         for m, fct in metric2fct.items():
@@ -359,11 +347,10 @@ def deeper_analysis(adata: ad.AnnData, test_res: Dict, ctrl_expression: np.ndarr
         if len(o) > 0:
             pert_metric[pert]['fold_change_gap_upreg_10'] = np.mean(np.abs(pred_fc/ctrl_fc - true_fc/ctrl_fc))
 
-        ## most variable genes
         if len(most_variable_genes) >= 2:
             for m, fct in metric2fct.items():
                 if m != 'mse':
-                    # pearsonr 계산
+
                     val = fct(pred_pert_mean[most_variable_genes] - ctrl[0][most_variable_genes], truth_pert_mean[most_variable_genes] - ctrl[0][most_variable_genes])[0]
                     if np.isnan(val):
                         val = 0
@@ -374,7 +361,7 @@ def deeper_analysis(adata: ad.AnnData, test_res: Dict, ctrl_expression: np.ndarr
                         val = 0
                     pert_metric[pert][m + '_top200_hvg'] = val
                 else:
-                    # mse 계산
+
                     val = fct(pred_pert_mean[most_variable_genes], truth_pert_mean[most_variable_genes])
                     pert_metric[pert][m + '_top200_hvg'] = val
         else:
@@ -383,7 +370,6 @@ def deeper_analysis(adata: ad.AnnData, test_res: Dict, ctrl_expression: np.ndarr
                 pert_metric[pert][m + '_top200_hvg'] = 0
 
 
-        ## top 20/50/100/200 DEs
         for m, fct in metric2fct.items():
             if m != 'mse':
                 val = fct(pred_pert_mean[de_idx] - ctrl[0][de_idx], truth_pert_mean[de_idx] - ctrl[0][de_idx])[0]
@@ -467,12 +453,6 @@ def non_dropout_analysis(adata: ad.AnnData, test_res: Dict, ctrl_expression: np.
     uns_key_de: str = 'top_non_dropout',    # non dropout DE 유전자 이름 리스트 (Ranked)
     uns_key_all_idx: str = 'non_dropout_gene_idx'   # 전체 Non-dropout 유전자 인덱스 리스트
 )-> Dict:
-    """
-    Non-dropout 유전자에 대한 심층 분석을 수행합니다.
-    uns_key_dropout에 저장된 유전자 이름 리스트를 기반으로 상위 N개 및 전체 Non-dropout 유전자를 평가
-    - Top 20, 50, 100, 200 DE Genes (from 'top_non_dropout')
-    - All Non-dropout Genes (from 'non_dropout_gene_idx')
-    """
     metric2fct = {
            'pearson': pearsonr,
            'mse': mse
@@ -505,7 +485,7 @@ def non_dropout_analysis(adata: ad.AnnData, test_res: Dict, ctrl_expression: np.
             print(f"Warning: '{uns_key_de}' not found for {full_pert_name}. Skipping DE metrics.")
             de_indices_full = []
         else:
-            # 전체 리스트를 인덱스로 변환해둠
+
             de_indices_full = [geneid2idx[g] for g in de_gene_names if g in geneid2idx]
 
 
@@ -513,7 +493,6 @@ def non_dropout_analysis(adata: ad.AnnData, test_res: Dict, ctrl_expression: np.
         pred_pert_mean = mean_nonzero(test_res['pred'][pert_idx], axis=0)
         truth_pert_mean = mean_nonzero(test_res['truth'][pert_idx], axis=0)
 
-        # 각 K별로 슬라이싱하여 맵 생성
         de_idx_map = {
             20: de_indices_full[:20],
             50: de_indices_full[:50],
@@ -525,10 +504,9 @@ def non_dropout_analysis(adata: ad.AnnData, test_res: Dict, ctrl_expression: np.
             if len(current_de_idx) == 0:
                 continue
                 
-            suffix = f'_top{k}_non_dropout' # 키 이름 접미사 (예: _top20_non_dropout)
+            suffix = f'_top{k}_non_dropout' 
 
-            # 1. 방향성 (Directionality)
-            # Pred - Ctrl vs Truth - Ctrl 의 부호 비교
+
             direc_change = np.abs(np.sign(pred_pert_mean[current_de_idx] - ctrl[0][current_de_idx]) - 
                                   np.sign(truth_pert_mean[current_de_idx] - ctrl[0][current_de_idx]))            
             
@@ -537,10 +515,6 @@ def non_dropout_analysis(adata: ad.AnnData, test_res: Dict, ctrl_expression: np.
             pert_metric[pert][f'frac_0/1_direction{suffix}'] = len(np.where(direc_change == 1)[0]) / len(current_de_idx)
 
             for m, fct in metric2fct.items():
-            # =================================================
-            # Case 1: Raw Expression (최종 발현량 비교)
-            # Key: mse_top20_non_dropout / pearson_top20_non_dropout
-            # =================================================
                 val_raw = fct(pred_pert_mean[current_de_idx], truth_pert_mean[current_de_idx])
                 
                 if m == 'pearson':
@@ -550,11 +524,6 @@ def non_dropout_analysis(adata: ad.AnnData, test_res: Dict, ctrl_expression: np.
                 
                 key_raw = f'{m}{suffix}'
                 pert_metric[pert][key_raw] = val_raw
-
-                # =================================================
-                # Case 2: Delta Expression (변화량 비교)
-                # Key: mse_delta_top20_non_dropout / pearson_delta_top20_non_dropout
-                # =================================================
                 pred_delta = pred_pert_mean[current_de_idx] - ctrl[0][current_de_idx]
                 truth_delta = truth_pert_mean[current_de_idx] - ctrl[0][current_de_idx]
                 
@@ -565,7 +534,7 @@ def non_dropout_analysis(adata: ad.AnnData, test_res: Dict, ctrl_expression: np.
                 if np.isnan(val_delta):
                     val_delta = 0
                 
-                key_delta = f'{m}_delta{suffix}' # _delta 포함
+                key_delta = f'{m}_delta{suffix}'
                 pert_metric[pert][key_delta] = val_delta
 
     return pert_metric

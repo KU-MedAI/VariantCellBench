@@ -6,16 +6,12 @@ import anndata
 from sklearn.metrics import mean_squared_error
 
 def get_pseudobulk_matrix(adata: anndata.AnnData, condition_col: str):
-    """
-    AnnData를 입력받아 변이(condition_col)별 유전자 평균 발현량을 계산하여 반환합니다.
-    * [수정됨] 평균 계산 시 0인 값은 제외합니다. (Sum / Non-zero Count)
-    Returns: pd.DataFrame (Rows: Variants, Cols: Genes)
-    """
+
     if condition_col not in adata.obs.columns:
         raise ValueError(f"'{condition_col}' column not found in adata.obs")
 
     conditions = [c for c in adata.obs[condition_col].unique() if c != 'ctrl']
-    conditions = sorted(conditions) # 순서 고정
+    conditions = sorted(conditions)
     
     means_list = []
     valid_conditions = []
@@ -32,12 +28,9 @@ def get_pseudobulk_matrix(adata: anndata.AnnData, condition_col: str):
         else:
             sum_vals = np.sum(X, axis=0)
 
-        # 분모: 전체 관측치 수 (Total Count) - 0인 값도 개수에 포함됨
         total_count = subset.n_obs
 
         mean_val = sum_vals / total_count
-        # ---------------------------------------------------------------
-
         means_list.append(mean_val)
         valid_conditions.append(cond)
 

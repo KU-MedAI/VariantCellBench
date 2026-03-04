@@ -1,16 +1,4 @@
-# /home/tech/variantseq/eugenie/variant_metric/cell-eval/src/cell_eval/gears/run_gears.py
 
-'''
-
-conda activate cell-eval-dev
-
-python run_gears.py \
-  --pred /NFS_DATA/samsung/database/benchmark_figure/ann_dataset/scLAMBDA/0108_0538_hct116_ankh_alt_1_3_pred.h5ad \
-  --truth /NFS_DATA/samsung/database/benchmark_figure/ann_dataset/truth/hct116_1-3.h5ad \
-  --pert_col "condition" \
-  --control "ctrl" \
-  --outdir ./gears_test_260130_1641
-'''
 import logging
 import numpy as np
 import pandas as pd
@@ -19,24 +7,14 @@ import os
 import argparse
 import sys
 
-# 같은 폴더의 utils.py에서 필요한 함수들을 모두 import 합니다.
-from cell_eval.gears import utils as gears_utils    # 고치기
 
-# 로거 설정
+from cell_eval.gears import utils as gears_utils 
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger()
 
 def main(adata_pred_path: str, adata_truth_path: str, pert_col: str, control_pert: str, outdir: str = "./cell-eval-outdir"):
-    """
-    두 개의 AnnData 파일 경로를 받아 전체 분석 파이프라인을 실행합니다.
-    
-    Args:
-        adata_pred_path: 예측 데이터 AnnData 파일 경로
-        adata_truth_path: 실제 데이터 AnnData 파일 경로
-        pert_col: perturbation 컬럼명
-        control_pert: control perturbation 이름
-        outdir: 결과를 저장할 출력 디렉터리 경로
-    """
+
     # 1. 데이터 로딩
     logger.info("Loading AnnData objects...")
     adata_truth = sc.read_h5ad(adata_truth_path)
