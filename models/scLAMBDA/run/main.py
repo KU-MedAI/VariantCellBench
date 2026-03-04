@@ -2,7 +2,6 @@
 import os
 import sys
 import gc
-# scLAMBDA 프로젝트 경로 설정 (환경에 맞게 수정)
 sys.path.append("/home/tech/variantseq/eugenie/scLAMBDA/variant_scLAMBDA")
 import argparse
 import pandas as pd

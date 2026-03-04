@@ -18,7 +18,6 @@ from torchtext.vocab import Vocab
 from torchtext._torchtext import Vocab as VocabPybind
 from torch_geometric.loader import DataLoader
 
-# scGPT 관련 import (환경에 맞게 경로 설정 필요)
 sys.path.insert(0, "../")
 import scgpt as scg
 from scgpt.model import TransformerGenerator
@@ -57,14 +56,11 @@ def eval_perturb(loader, model, device, args, gene_ids, variant_vocab, variant_e
     pert_cat = []
     pred = []
     truth = []
-    
-    # Inference loop
+
     with torch.no_grad():
         for itr, batch in enumerate(loader):
             batch.to(device)
             pert_cat.extend(batch.pert)
-
-            # Predict using all genes (or non-zero depending on args)
             p = model.pred_perturb(
                 batch,
                 include_zero_gene=args.include_zero_gene,
@@ -85,16 +81,11 @@ def eval_perturb(loader, model, device, args, gene_ids, variant_vocab, variant_e
     results["truth"] = torch.stack(truth).numpy().astype(np.float32)
     return results
 
-# =============================================================================
-# Main Execution
-# =============================================================================
-
 def main(args):
     set_seed(args.seed)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    # --- Data Loading ---
     print(f"Loading data from {args.dataloader_path}...")
     with open(args.dataloader_path, 'rb') as f:
         dataloader_dict = pickle.load(f)
@@ -105,7 +96,6 @@ def main(args):
     n_genes = len(gene_names)
     gene_to_idx = {g: i for i, g in enumerate(gene_names)}
 
-    # Apply x tensor to dataloaders
     print("Building inputs...")
     x_tensor_list = build_expr_binarypert_x_list(adata, gene_to_idx, gene_names)
     for split in ["test_loader"]:
@@ -116,10 +106,8 @@ def main(args):
 
     pert_data = FakePertData(dataloader_dict, adata)
 
-    # --- Model & Vocab Setup ---
     special_tokens = [args.pad_token, "<cls>", "<eoc>"]
-    
-    # 1. Load Config from pretrained path (usually scGPT_human)
+
     if args.model_config_path:
         model_dir = Path(args.model_config_path)
         model_config_file = model_dir / "args.json"
@@ -128,8 +116,7 @@ def main(args):
         vocab = GeneVocab.from_file(vocab_file)
         for s in special_tokens:
             if s not in vocab: vocab.append_token(s)
-            
-        # Vocab matching
+
         pert_data.adata.var["id_in_vocab"] = [
             1 if gene in vocab else -1 for gene in pert_data.adata.var["gene_name"]
         ]
@@ -146,7 +133,6 @@ def main(args):
         nlayers = model_configs["nlayers"]
         n_layers_cls = model_configs["n_layers_cls"]
     else:
-        # Fallback manual config
         genes = pert_data.adata.var["gene_name"].tolist()
         vocab = Vocab(VocabPybind(genes + special_tokens, None))
         embsize = args.embsize
@@ -158,7 +144,6 @@ def main(args):
     vocab.set_default_index(vocab["<pad>"])
     gene_ids = np.array([vocab[gene] if gene in vocab else vocab["<pad>"] for gene in genes], dtype=int)
 
-    # --- Variant Embeddings ---
     print(f"Loading variant embeddings from {args.pkl_path}...")
     unique_conditions = adata.obs['condition'].unique().tolist()
     variant_list_full_names = []
@@ -169,7 +154,7 @@ def main(args):
     variant_list_full_names = sorted(list(set(variant_list_full_names)))
     
     short_to_full_map = {name.split('~')[1]: name for name in variant_list_full_names}
-    short_to_full_map['REF'] = 'REF' # REF 키 추가
+    short_to_full_map['REF'] = 'REF'
     
     variant_vocab = OrderedDict([("<pad>", 0), ("ctrl", 1), ("REF", 2)] + [(v, i + 3) for i, v in enumerate(variant_list_full_names)])
     
@@ -191,7 +176,7 @@ def main(args):
                     if embedding_dim is None: embedding_dim = embedding_tensor.shape[0]
 
     if 'REF' not in processed_embeddings:
-         if embedding_dim: processed_embeddings['REF'] = torch.zeros(embedding_dim) # Fallback
+         if embedding_dim: processed_embeddings['REF'] = torch.zeros(embedding_dim)
          else: raise ValueError("Could not determine embedding dimension from cache.")
 
     processed_embeddings["<pad>"] = torch.zeros(embedding_dim)
@@ -207,7 +192,6 @@ def main(args):
     variant_embs_cpu = torch.stack(variant_emb_list)
     projector = nn.Linear(embedding_dim, embsize).to(device)
     
-    # --- Load Checkpoint ---
     print(f"Loading checkpoint from {args.checkpoint_path}...")
     ntokens = len(vocab)
     model = TransformerGenerator(
@@ -218,7 +202,6 @@ def main(args):
         use_fast_transformer=True
     )
     
-    # Load state dict
     state_dict = torch.load(args.checkpoint_path, map_location=device)
     model.load_state_dict(state_dict)
     model.to(device)
@@ -226,7 +209,6 @@ def main(args):
     with torch.no_grad():
         variant_embs_proj = projector(variant_embs_cpu.to(device))
 
-    # --- Inference ---
     print("Running inference on test_loader...")
     test_loader = pert_data.dataloader_dict["test_loader"]
     test_res = eval_perturb(
@@ -234,7 +216,6 @@ def main(args):
         gene_ids, variant_vocab, variant_embs_proj
     )
 
-    # --- Post-processing & Saving ---
     print("\n--- Processing Results ---")
 
     original_adata = ad.read_h5ad(args.metadata_adata_path)
@@ -269,7 +250,7 @@ def main(args):
     ctrl_obs_df = pd.DataFrame({'condition': [f"ctrl" for _ in range(len(test_x_controls))]})
     ctrl_obs_df.index = [f"ctrl_{i}" for i in range(len(ctrl_obs_df))]
     
-    ctrl_adata = ad.AnnData(X=test_x_controls, obs=ctrl_obs_df, var=var_df) # Original vars
+    ctrl_adata = ad.AnnData(X=test_x_controls, obs=ctrl_obs_df, var=var_df)
     
     print("Concatenating control samples...")
     final_pred_adata = ad.concat([pred_adata, ctrl_adata], join='outer', fill_value=0, label='source')
@@ -299,7 +280,6 @@ def main(args):
             if adata_obj.obs[col].dtype == object:
                 adata_obj.obs[col] = adata_obj.obs[col].astype(str)
 
-    # --- Save ---
     os.makedirs(args.save_dir, exist_ok=True)
     pred_path = os.path.join(args.save_dir, f"{args.save_name}_pred.h5ad")
     
@@ -310,7 +290,6 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Inference scGPT with Variant Perturbations")
 
-    # Paths
     parser.add_argument("--dataloader_path", type=str, required=True, help="Path to dataloader.pkl")
     parser.add_argument("--adata_path", type=str, required=True, help="Path to processed .h5ad")
     parser.add_argument("--metadata_adata_path", type=str, required=True, help="Path to metadata .h5ad")
@@ -320,12 +299,10 @@ if __name__ == "__main__":
     parser.add_argument("--save_dir", type=str, default="./results", help="Directory to save results")
     parser.add_argument("--save_name", type=str, default="hct116_result", help="Prefix for saved files")
 
-    # Options
     parser.add_argument("--embedding_key", type=str, default="DIFF", choices=["ALT", "DIFF"])
     parser.add_argument("--seed", type=int, default=43)
     parser.add_argument("--include_zero_gene", type=str, default="all")
-    
-    # Model Params (Should match training)
+
     parser.add_argument("--pad_token", type=str, default="<pad>")
     parser.add_argument("--pad_value", type=int, default=0)
     parser.add_argument("--pert_pad_id", type=int, default=0)

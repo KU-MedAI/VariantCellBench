@@ -82,9 +82,6 @@ class TransformerGenerator(nn.Module):
         self.value_encoder = ContinuousValueEncoder(d_model, dropout)
         self.pert_encoder = nn.Embedding(3, d_model, padding_idx=pert_pad_id)
 
-        # print("Using simple batchnorm instead of domain specific batchnorm")
-        # self.bn = nn.BatchNorm1d(d_model, eps=6.1e-5)
-
         if use_fast_transformer:
             if fast_transformer_backend == "linear":
                 self.transformer_encoder = FastTransformerEncoderWrapper(
@@ -106,7 +103,6 @@ class TransformerGenerator(nn.Module):
             )
             self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
 
-        # self.decoder = nn.Linear(d_model, 1)
         self.decoder = AffineExprDecoder(
             d_model,
             explicit_zero_prob=explicit_zero_prob,
@@ -139,35 +135,11 @@ class TransformerGenerator(nn.Module):
         self.cur_gene_token_embs = src
         values = self.value_encoder(values)  # (batch, seq_len, embsize)
         perts = self.pert_encoder(input_pert_flags)  # (batch, seq_len, embsize)
-        '''
-        if variant_emb is None:
-            variant_emb = 0
-        elif variant_emb.dim() == 2:
-            variant_emb = variant_emb.unsqueeze(1).expand(-1, src.size(1), -1)
-        elif variant_emb.dim() == 3:
-            assert variant_emb.shape[1] == src.size(1)
-
-
-
-        total_embs = src + values + perts + variant_emb
-        '''
         if variant_emb is not None:
-            # Step 2a: variant_emb를 브로드캐스팅할 수 있도록 차원을 추가합니다.
-            # (batch, embsize) -> (batch, 1, embsize)
             variant_emb_for_broadcast = variant_emb.unsqueeze(1)
-
-            # Step 2b: input_pert_flags를 곱셈을 위한 마스크로 변환합니다.
-            # (batch, seq_len) -> (batch, seq_len, 1)
             mask = input_pert_flags.unsqueeze(2).float()
-
-            # Step 2c: 마스크와 variant_emb를 곱합니다.
-            # 브로드캐스팅 결과: (batch, seq_len, embsize)
-            # -> pert_flag가 1인 위치는 variant_emb 벡터가, 0인 위치는 0 벡터가 됩니다.
             specific_variant_additions = variant_emb_for_broadcast * mask
 
-
-
-        #total_embs = src + values + perts + specific_variant_additions
         total_embs = src + values + specific_variant_additions  # condition token 제외
         output = self.transformer_encoder(
             total_embs, src_key_padding_mask=src_key_padding_mask
@@ -393,8 +365,6 @@ class TransformerGenerator(nn.Module):
             variant_ids = [variant_vocab[name.split("+")[0]] for name in pert_names]
             variant_ids = torch.tensor(variant_ids, dtype=torch.long)
             variant_embs = variant_embs_proj[variant_ids].detach().to(device)
-            #variant_embs = variant_embs_proj[variant_ids].detach().to(device)
-            #variant_embs = variant_embs.unsqueeze(1).expand(-1, input_values.shape[1], -1)
 
             with torch.cuda.amp.autocast(enabled=amp):
                 transformer_output = self.encode_batch(

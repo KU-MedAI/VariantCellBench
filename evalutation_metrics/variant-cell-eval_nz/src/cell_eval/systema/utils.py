@@ -1,4 +1,3 @@
-# util2.py
 
 import pandas as pd
 import numpy as np
@@ -24,7 +23,6 @@ def average_of_perturbation_centroids(
     pert_adata = adata[adata.obs[pert_col] != control_pert].copy()
 
     if pert_adata.n_obs == 0:
-        print(f"경고: '{control_pert}' 외에 다른 교란 조건이 없습니다. 0으로 채워진 벡터를 반환합니다.")
         return np.zeros(adata.n_vars)
 
     pert_means = []
