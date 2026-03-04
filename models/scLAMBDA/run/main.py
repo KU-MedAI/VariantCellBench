@@ -1,12 +1,4 @@
-"""
-python main.py \
-    --gene_emb_path /NFS_DATA/samsung/database/gears/embedding/embedding_cache_variant_position_[esm_msa1_t12_100M_UR50S].pkl \
-    --adata_path /NFS_DATA/samsung/database/gears/kim2023_hct116_[benchmark][3_3-fold]/perturb_processed_metadata.h5ad \
-    --model_path /NFS_DATA/samsung/scLAMBDA/251208/3_3-fold/hct116_MSA_ALT \
-    --wandb_project "sclambda-project-hct116_MSA_ALT" \
-    --wandb_entity "bandalcom-medai" \
-    --emb_type "ALT"
-"""
+
 import os
 import sys
 import gc

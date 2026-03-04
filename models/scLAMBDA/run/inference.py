@@ -1,18 +1,3 @@
-'''
-python inference.py \
-    --emb_type DIFF \
-    --gene_emb_path "/NFS_DATA/samsung/database/gears/embedding/embedding_cache_variant_position_[esm_msa1_t12_100M_UR50S].pkl" \
-    --adata_path "/NFS_DATA/samsung/database/gears/kim2023_hct116_[benchmark][clinvar]/perturb_processed_[01].h5ad" \
-    --ckpt_path "/NFS_DATA/samsung/scLAMBDA/251208/1_3-fold/hct116_MSA_DIFF/ckpt.pth" \
-    --cell_type hct116 \
-    --model_name msa \
-    --fold 1-3 \
-    --data_id 01
-GPU 병렬 작업
-conda activate rtd
-./run_inference_v2.py
-
-'''
 
 import argparse
 import pandas as pd

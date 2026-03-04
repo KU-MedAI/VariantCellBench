@@ -302,28 +302,6 @@ class Model(object):
             pert_test = [pert_test]
         
         for i in pert_test:
-            '''
-            # Initialize the perturbation embedding vector
-            pert_emb_p = np.zeros(self.p_dim)
-            
-            # Split the condition string (e.g., 'TP53~C135Y+ctrl' -> ['TP53~C135Y', 'ctrl'])
-            gene_conditions = i.split('+')
-            
-            # Check for the 'ctrl' condition which has no associated embedding
-            if gene_conditions[0] != 'ctrl':
-                # Iterate through each gene/mutation part of the condition
-                for gene_info in gene_conditions:
-                    # Skip the 'ctrl' part if it's in a dual perturbation
-                    if gene_info == 'ctrl':
-                        continue
-                    
-                    # Split the gene-mutation string (e.g., 'TP53~C135Y' -> 'TP53', 'C135Y')
-                    gene_name, mutation = gene_info.split('~')
-                    
-                    # Retrieve the embedding from the dictionary using a tuple key and sum it
-                    # Assumes self.gene_emb has keys like ('TP53', 'C135Y')
-                    pert_emb_p += self.gene_emb[(gene_name, mutation)]
-            '''
             # __init__에서 계산된 임베딩을 직접 가져옴 (ALT 또는 DIFF 결과)
             if i not in self.pert_emb:
                 print(f"Warning: Pre-calculated embedding not found for prediction condition '{i}'. Skipping.")
@@ -362,28 +340,6 @@ class Model(object):
             pert_test = [pert_test]
         
         for i in pert_test:
-            '''
-            # Initialize the perturbation embedding vector
-            pert_emb_p = np.zeros(self.p_dim)
-            
-            # Split the condition string (e.g., 'TP53~C135Y+ctrl' -> ['TP53~C135Y', 'ctrl'])
-            gene_conditions = i.split('+')
-            
-            # Check for the 'ctrl' condition which has no associated embedding
-            if gene_conditions[0] != 'ctrl':
-                # Iterate through each gene/mutation part of the condition
-                for gene_info in gene_conditions:
-                    # Skip the 'ctrl' part if it's in a dual perturbation
-                    if gene_info == 'ctrl':
-                        continue
-                    
-                    # Split the gene-mutation string (e.g., 'TP53~C135Y' -> 'TP53', 'C135Y')
-                    gene_name, mutation = gene_info.split('~')
-                    
-                    # Retrieve the embedding from the dictionary using a tuple key and sum it
-                    # Assumes self.gene_emb has keys like ('TP53', 'C135Y')
-                    pert_emb_p += self.gene_emb[(gene_name, mutation)]
-            '''
             if i not in self.pert_emb:
                 print(f"Warning: Pre-calculated embedding not found for generation condition '{i}'. Skipping.")
                 continue
