@@ -9,7 +9,6 @@ import pickle
 import torch
 import gc
 import re
-# scLAMBDA 프로젝트 경로 설정 (환경에 맞게 수정)
 import sys
 sys.path.append("/home/tech/variantseq/eugenie/scLAMBDA/variant_scLAMBDA")
 import sclambda
@@ -22,7 +21,7 @@ except ImportError:
     except ImportError:
         raise ImportError("Cannot import 'Net' class from sclambda. Please check the package structure.")
 
-OUTPUT_DIR = "/NFS_DATA/samsung/database/benchmark_figure/ann_dataset_oncoKB/scLAMBDA" # 변경
+OUTPUT_DIR = "/NFS_DATA/samsung/database/benchmark_figure/ann_dataset_oncoKB/scLAMBDA"
 
 def inference(args):
     print("--- 1. Loading data and gene embeddings ---")

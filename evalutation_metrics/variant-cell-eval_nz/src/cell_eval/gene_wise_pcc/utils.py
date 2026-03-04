@@ -42,9 +42,6 @@ def get_pseudobulk_matrix(adata: anndata.AnnData, condition_col: str):
     return pd.DataFrame(means_list, index=valid_conditions, columns=adata.var_names)
     
 def compute_inter_variant_metrics(truth_df: pd.DataFrame, pred_df: pd.DataFrame):
-    """
-    변이별 평균값 DataFrame(Truth vs Pred)을 받아 유전자별 PCC/MSE를 계산합니다.
-    """
     common_variants = truth_df.index.intersection(pred_df.index)
     if len(common_variants) < 3:
         print(f"[Warning] Not enough variants for correlation (n={len(common_variants)}). Need at least 3.")
