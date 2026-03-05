@@ -88,8 +88,11 @@ The pipeline aggregates and standardizes metrics from different evaluation tools
 ### 1. GEARS Metrics (Cell-wise Evaluation)
 CW (Cell-wise) metrics measure the prediction accuracy of the average transcriptional response for each perturbation condition.
 
-- $\text{MSE}_{\text{cw}}^{\text{DE}}$ (from `mse_top20_non_dropout`): Cell-wise Mean Squared Error. Calculates the prediction error for each condition as the mean squared difference between the predicted ($x^k_{\text{pred},g}$) and true ($x^k_{\text{true},g}$) averaged expression over the non-dropout DEGs.
+- **MSE<sub>cw</sub><sup>DE</sup>** (from `mse_top20_non_dropout`): Cell-wise Mean Squared Error. Calculates the prediction error for each condition as the mean squared difference between the predicted ($x^k_{\text{pred},g}$) and true ($x^k_{\text{true},g}$) averaged expression over the non-dropout DEGs.
 - $\text{PCC}_{\text{cw}}^{\text{DE}}$ (from `pearson_top20_non_dropout`): Cell-wise Pearson Correlation Coefficient. Measures the correlation between the predicted and ground truth averaged expression vectors over the non-dropout DEGs.
+
+- **PCC<sub>cw</sub><sup>DE</sup>** (from `pearson_top20_non_dropout`): Cell-wise Pearson Correlation Coefficient. Measures the correlation between the predicted and ground truth averaged expression vectors over the non-dropout DEGs.
+>>>>>>> Stashed changes
 - $\Delta\text{PCC}_{\text{cw}}^{\text{DE}}$ (from `pearson_delta_top20_non_dropout`): Cell-wise Delta Pearson Correlation Coefficient. Measures the perturbation-induced transcriptional response by computing the correlation of expression *changes* relative to the control cell ($x_{\text{ctrl},g}$) across the non-dropout DEGs.
 
 ### 2. Systema Metrics
