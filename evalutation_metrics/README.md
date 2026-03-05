@@ -49,7 +49,7 @@ python result_summary.py \
 ### Score & Aggregation
 Unlike standard evaluation scripts that scatter results across multiple CSVs, this pipeline maps and aggregates all metrics into a single, standardized output score sheet.
 
-Once the run is complete, the pipeline collects metrics from all tools, applies the METRIC_MAPPING (e.g., `pearson_top20_d`e → `PCC_DE_20`), and generates a final comprehensive CSV.
+Once the run is complete, the pipeline collects metrics from all tools, applies the METRIC_MAPPING (e.g., `pearson_top20_de` → `PCC_DE_20`), and generates a final comprehensive CSV.
 
 
 ```bash
@@ -66,16 +66,16 @@ The `result_summary.py` script acts as the master orchestrator. It processes pre
 
 ### Step 2: Pre-computation (Cross-Fold Merging)
 - **Gene-wise Caching**: Because Gene-wise metrics require evaluating variants across the entire dataset, the pipeline first groups the individual fold files (e.g., Fold 1-3, 2-3, 3-3) by their configuration `(Cell Line, PLM, Embedding)`. 
-- It concatenates these folds into a single temporary matrix, runs the `condition_v4.py` script to compute global PCC and MSE, and caches these results in memory for later injection.
+- It concatenates these folds into a single temporary matrix, runs the `condition.py` script to compute global PCC and MSE, and caches these results in memory for later injection.
 
 ### Step 3: Multi-Environment Orchestration
 The pipeline uses Python's `subprocess` module to orchestrate disparate evaluation tools simultaneously, isolating temporary outputs to prevent overwriting.
-- **Native Execution**: Runs GEARS (`run_gears.py`), Systema (`run_systema_v2.py`), and Gene-wise calculations in the primary `cell-eval-dev` Conda environment.
+- **Native Execution**: Runs GEARS (`run_gears.py`), Systema (`run_systema.py`), and Gene-wise calculations in the primary `cell-eval-dev` Conda environment.
 - **Environment Bridging**: For the AUPRC metric (`main.py` $\rightarrow$ `analysis.R`), the script dynamically sources the bash profile and injects the execution command into an isolated R-compatible environment (`r-cmap-env`) to resolve dependency conflicts.
 
 ### Step 4: Metric Mapping & Aggregation
 - **Data Harvesting**: After all subprocesses finish, the script crawls through the temporary output directories and reads the individual CSV files (`gears_perturbations.csv`, `systema_pearson.csv`, `overlap_stats.csv`, etc.).
-- **Standardization (`METRIC_MAPPING`)**: It maps local, tool-specific metric names (e.g., Systema's `prediction` or GEARS's `mse_top20_non_dropout`) to the globally standardized names (e.g., `ACC_centroid`, `MSE_ND_DE_20`).
+- **Standardization** (`METRIC_MAPPING`): It maps local, tool-specific metric names (e.g., Systema's `prediction` or GEARS's `mse_top20_non_dropout`) to the globally standardized names (e.g., `ACC_centroid`, `MSE_ND_DE_20`).
 - **Final Output**: The script appends the cached Gene-wise metrics, compiles a comprehensive Pandas DataFrame, and exports the final `<MODEL_NAME>_total.csv` matrix. Temporary directories are then automatically cleaned up.
 
 ## Metrics Reference
@@ -88,19 +88,19 @@ The pipeline aggregates and standardizes metrics from different evaluation tools
 ### 1. GEARS Metrics (Cell-wise Evaluation)
 CW (Cell-wise) metrics measure the prediction accuracy of the average transcriptional response for each perturbation condition.
 
-- `$\text{MSE}_{\text{cw}}^{\text{DE}}$` (from `mse_top20_non_dropout`): Cell-wise Mean Squared Error. Calculates the prediction error for each condition as the mean squared difference between the predicted ($x^k_{\text{pred},g}$) and true ($x^k_{\text{true},g}$) averaged expression over the non-dropout DEGs.
-- `$\text{PCC}_{\text{cw}}^{\text{DE}}$` (from `pearson_top20_non_dropout`): Cell-wise Pearson Correlation Coefficient. Measures the correlation between the predicted and ground truth averaged expression vectors over the non-dropout DEGs.
-- `$\Delta\text{PCC}_{\text{cw}}^{\text{DE}}$` (from `pearson_delta_top20_non_dropout`): Cell-wise Delta Pearson Correlation Coefficient. Measures the perturbation-induced transcriptional response by computing the correlation of expression *changes* relative to the control cell ($x_{\text{ctrl},g}$) across the non-dropout DEGs.
+- $\text{MSE}_{\text{cw}}^{\text{DE}}$ (from `mse_top20_non_dropout`): Cell-wise Mean Squared Error. Calculates the prediction error for each condition as the mean squared difference between the predicted ($x^k_{\text{pred},g}$) and true ($x^k_{\text{true},g}$) averaged expression over the non-dropout DEGs.
+- $\text{PCC}_{\text{cw}}^{\text{DE}}$ (from `pearson_top20_non_dropout`): Cell-wise Pearson Correlation Coefficient. Measures the correlation between the predicted and ground truth averaged expression vectors over the non-dropout DEGs.
+- $\Delta\text{PCC}_{\text{cw}}^{\text{DE}}$ (from `pearson_delta_top20_non_dropout`): Cell-wise Delta Pearson Correlation Coefficient. Measures the perturbation-induced transcriptional response by computing the correlation of expression *changes* relative to the control cell ($x_{\text{ctrl},g}$) across the non-dropout DEGs.
 
 ### 2. Systema Metrics
 Metrics derived from the Systema evaluation framework, focusing on isolating variant-specific differences.
-- `$\Delta\text{SPCC}_{\text{cw}}^{\text{DE}}$` (from `corr_nondropout_top20de_allpert`): Systema Delta Pearson Correlation Coefficient. Replaces the control mean with the average expression profile across *all* perturbed cells ($x^{\text{true}}_{\text{avg}, g}$). This strict evaluation reduces shared variation across variants and purely focuses on variant-specific directional effects.
+- $\Delta\text{SPCC}_{\text{cw}}^{\text{DE}}$ (from `corr_nondropout_top20de_allpert`): Systema Delta Pearson Correlation Coefficient. Replaces the control mean with the average expression profile across *all* perturbed cells ($x^{\text{true}}_{\text{avg}, g}$). This strict evaluation reduces shared variation across variants and purely focuses on variant-specific directional effects.
 - `C-Acc.` (from `prediction`): Centroid Accuracy. Evaluates whether a predicted profile ($\mathbf{x}^k_{\text{pred}}$) is more similar to its corresponding ground-truth centroid ($\mathbf{x}^k_{\text{true}}$) than to any other centroid based on Euclidean distance. It measures the model’s ability to discriminate between variant-specific gene expression patterns.
 
 ### 3. Gene-wise Metrics
 Calculated by merging cross-validation folds (1-3, 2-3, 3-3). GW metrics evaluate whether a model correctly identifies the transcriptional changes specific to each variant for individual genes.
-- `$\text{PCC}_{\text{gw}}$` (from `mean_pcc`): Gene-wise Pearson Correlation Coefficient. Evaluates variant-specific gene expression changes by measuring the correlation between the predicted ($\mathbf{v}^g_{\text{pred}}$) and true ($\mathbf{v}^g_{\text{true}}$) expression vectors of individual genes across all $K$ variant conditions. The final score is averaged across all valid genes.
-- `$\text{MSE}_{\text{gw}}$` (from `mean_mse`): Gene-wise Mean Squared Error. Calculates the mean squared difference between predicted and true expression levels for individual genes across all variant conditions, averaged over all valid genes.
+- $\text{PCC}_{\text{gw}}$ (from `mean_pcc`): Gene-wise Pearson Correlation Coefficient. Evaluates variant-specific gene expression changes by measuring the correlation between the predicted ($\mathbf{v}^g_{\text{pred}}$) and true ($\mathbf{v}^g_{\text{true}}$) expression vectors of individual genes across all $K$ variant conditions. The final score is averaged across all valid genes.
+- $\text{MSE}_{\text{gw}}$ (from `mean_mse`): Gene-wise Mean Squared Error. Calculates the mean squared difference between predicted and true expression levels for individual genes across all variant conditions, averaged over all valid genes.
 
 ### 4. AUPRC
 - `AUPRC` (from `overlap_stats.csv`): Area Under the Precision-Recall Curve. Treats DE identification as a binary classification task to evaluate the model's ability to identify DEGs against background noise.
