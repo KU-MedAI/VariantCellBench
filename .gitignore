@@ -1,2 +1,7 @@
+# Python 캐시 파일 무시
+__pycache__/
+*.pyc
+
+# 대용량 데이터 및 피클 파일 무시
 *.pickle
 models/GeneCompass/src/prior_knowledge/
