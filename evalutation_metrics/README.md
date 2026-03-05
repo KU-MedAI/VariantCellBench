@@ -93,17 +93,17 @@ CW (Cell-wise) metrics measure the prediction accuracy of the average transcript
 
 - **PCC<sub>cw</sub><sup>DE</sup>** (from `pearson_top20_non_dropout`): Cell-wise Pearson Correlation Coefficient. Measures the correlation between the predicted and ground truth averaged expression vectors over the non-dropout DEGs.
 >>>>>>> Stashed changes
-- $\Delta\text{PCC}_{\text{cw}}^{\text{DE}}$ (from `pearson_delta_top20_non_dropout`): Cell-wise Delta Pearson Correlation Coefficient. Measures the perturbation-induced transcriptional response by computing the correlation of expression *changes* relative to the control cell ($x_{\text{ctrl},g}$) across the non-dropout DEGs.
+- **ΔPCC<sub>cw</sub><sup>DE</sup>** (from `pearson_delta_top20_non_dropout`): Cell-wise Delta Pearson Correlation Coefficient. Measures the perturbation-induced transcriptional response by computing the correlation of expression *changes* relative to the control cell ($x_{\text{ctrl},g}$) across the non-dropout DEGs.
 
 ### 2. Systema Metrics
 Metrics derived from the Systema evaluation framework, focusing on isolating variant-specific differences.
-- $\Delta\text{SPCC}_{\text{cw}}^{\text{DE}}$ (from `corr_nondropout_top20de_allpert`): Systema Delta Pearson Correlation Coefficient. Replaces the control mean with the average expression profile across *all* perturbed cells ($x^{\text{true}}_{\text{avg}, g}$). This strict evaluation reduces shared variation across variants and purely focuses on variant-specific directional effects.
-- `C-Acc.` (from `prediction`): Centroid Accuracy. Evaluates whether a predicted profile ($\mathbf{x}^k_{\text{pred}}$) is more similar to its corresponding ground-truth centroid ($\mathbf{x}^k_{\text{true}}$) than to any other centroid based on Euclidean distance. It measures the model’s ability to discriminate between variant-specific gene expression patterns.
+- **ΔSPCC<sub>cw</sub><sup>DE</sup>** (from `corr_nondropout_top20de_allpert`): Systema Delta Pearson Correlation Coefficient. Replaces the control mean with the average expression profile across *all* perturbed cells ($x^{\text{true}}_{\text{avg}, g}$). This strict evaluation reduces shared variation across variants and purely focuses on variant-specific directional effects.
+- **C-Acc.** (from `prediction`): Centroid Accuracy. Evaluates whether a predicted profile ($\mathbf{x}^k_{\text{pred}}$) is more similar to its corresponding ground-truth centroid ($\mathbf{x}^k_{\text{true}}$) than to any other centroid based on Euclidean distance. It measures the model’s ability to discriminate between variant-specific gene expression patterns.
 
 ### 3. Gene-wise Metrics
 Calculated by merging cross-validation folds (1-3, 2-3, 3-3). GW metrics evaluate whether a model correctly identifies the transcriptional changes specific to each variant for individual genes.
-- $\text{PCC}_{\text{gw}}$ (from `mean_pcc`): Gene-wise Pearson Correlation Coefficient. Evaluates variant-specific gene expression changes by measuring the correlation between the predicted ($\mathbf{v}^g_{\text{pred}}$) and true ($\mathbf{v}^g_{\text{true}}$) expression vectors of individual genes across all $K$ variant conditions. The final score is averaged across all valid genes.
-- $\text{MSE}_{\text{gw}}$ (from `mean_mse`): Gene-wise Mean Squared Error. Calculates the mean squared difference between predicted and true expression levels for individual genes across all variant conditions, averaged over all valid genes.
+- **PCC<sub>gw</sub>** (from `mean_pcc`): Gene-wise Pearson Correlation Coefficient. Evaluates variant-specific gene expression changes by measuring the correlation between the predicted ($\mathbf{v}^g_{\text{pred}}$) and true ($\mathbf{v}^g_{\text{true}}$) expression vectors of individual genes across all $K$ variant conditions. The final score is averaged across all valid genes.
+- **MSE<sub>gw</sub>** (from `mean_mse`): Gene-wise Mean Squared Error. Calculates the mean squared difference between predicted and true expression levels for individual genes across all variant conditions, averaged over all valid genes.
 
 ### 4. AUPRC
 - `AUPRC` (from `overlap_stats.csv`): Area Under the Precision-Recall Curve. Treats DE identification as a binary classification task to evaluate the model's ability to identify DEGs against background noise.
