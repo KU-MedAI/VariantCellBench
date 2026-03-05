@@ -73,3 +73,55 @@ def check_nan_loss(loss, y_pred, y_true, observed):
             print("  ⚠️ observed mask가 전부 False입니다. (loss 계산 대상 없음)")
         return True
     return False
+
+def set_heads(model_config, enc_heads=None, dec_heads=None):
+    # ----- encoder -----
+    if enc_heads is not None:
+        enc_dim = model_config["encoder"]["hidden_dim"]
+        assert enc_dim % enc_heads == 0, f"encoder: {enc_dim} % {enc_heads} != 0"
+        model_config["encoder"]["heads"] = enc_heads
+        # head_dim 갱신 (768 // 24 = 32 같은 식)
+        # model_config["encoder"]["dim_head"] = enc_dim // enc_heads
+
+    # ----- decoder -----
+    if dec_heads is not None:
+        dec_dim = model_config["decoder"]["hidden_dim"]
+        assert dec_dim % dec_heads == 0, f"decoder: {dec_dim} % {dec_heads} != 0"
+        model_config["decoder"]["heads"] = dec_heads
+
+
+
+def infer_cond_in_dim(cache):
+    """
+    embedding_cache 구조를 대충 이렇게 가정:
+      - {"TP53": {"Y220C": arr, "R248Q": arr, ...}, ...}
+      - arr는 (L, D) 또는 (D,) 또는 리스트(list[list[float]]) 등일 수 있음
+    """
+    # 1) 아무 gene 하나 뽑기
+    any_gene_emb = random.choice(list(cache.values()))
+
+    # 2) gene 아래가 dict면 (variant dict)에서 하나 더 뽑기
+    if isinstance(any_gene_emb, dict):
+        any_var_emb = random.choice(list(any_gene_emb.values()))
+    else:
+        any_var_emb = any_gene_emb
+
+    # 3) numpy array인 경우 → 마지막 차원 사용
+    if isinstance(any_var_emb, np.ndarray):
+        if any_var_emb.ndim >= 2:
+            return any_var_emb.shape[-1]  # (L, D) or (1, D) → D
+        else:
+            return any_var_emb.shape[0]   # (D,)인 경우
+
+    # 4) 파이썬 리스트인 경우
+    if isinstance(any_var_emb, list):
+        # (L, D) 형태의 list[list[float]]라고 가정
+        if len(any_var_emb) == 0:
+            raise ValueError("embedding_cache 안에 빈 리스트가 있습니다.")
+        first = any_var_emb[0]
+        if isinstance(first, (list, tuple, np.ndarray)):
+            return len(first)  # (L, D)에서 D
+        else:
+            return len(any_var_emb)      # (D,)인 경우
+
+    raise TypeError(f"알 수 없는 임베딩 타입: {type(any_var_emb)}")
