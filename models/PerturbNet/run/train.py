@@ -1,5 +1,6 @@
 # train.py
-from additional_utils import *
+# sys.path.append(os.path.abspath("../models/PerturbNet/src"))
+from ..src.additional_utils import *
 
 TARGET_SUM = {
     "hct116": 13750,
