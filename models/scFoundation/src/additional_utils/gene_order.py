@@ -361,3 +361,23 @@ class ReorderedVariantSeqDataset(Dataset):
 
     def __getitem__(self, idx):
         return self.data_list[idx]
+
+
+
+def save_dataset(path, dataset):
+    """Torch Geometric Dataset은 list 형태로 저장하는 것이 일반적."""
+    torch.save(dataset, path)
+    print(f"[SAVE] {path}")
+
+
+def load_dataset(path):
+    # PyTorch 2.6 이상에서 weights_only 기본값이 True라
+    # 명시적으로 False로 꺼줘야 커스텀 객체를 로드할 수 있음
+    try:
+        data = torch.load(path, map_location="cpu", weights_only=False)
+    except TypeError:
+        # (구버전 PyTorch에는 weights_only 인자가 없어서 TypeError가 날 수 있음)
+        data = torch.load(path, map_location="cpu")
+
+    print(f"[LOAD] {path}")
+    return data
