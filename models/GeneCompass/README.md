@@ -4,7 +4,7 @@ This repository provides the implementation for fine-tuning and running inferenc
 
 ---
 
-## Environment Setting
+## Environment Settings
 
 ### Conda Environment (Recommended)
 ```bash
