@@ -8,22 +8,9 @@ from typing import Dict, List
 from scipy.sparse import issparse
 
 def mean_nonzero(data, axis=0):
-    """
-    Compute standard mean including zero values.
-    (Function name kept for compatibility, but logic computes standard mean)
-    
-    Args:
-        data: numpy array or sparse matrix
-        axis: axis along which to compute the mean (0 for columns, 1 for rows)
-        
-    Returns:
-        numpy array with mean values (zeros are included in the calculation)
-    """
-    # 희소 행렬(sparse matrix)인 경우 밀집 행렬(dense array)로 변환
+
     if issparse(data):
         data = data.toarray()
-    
-    # 0을 제외하는 마스킹 로직을 제거하고, 전체 데이터에 대해 단순 평균 계산
     result = np.mean(data, axis=axis)
     
     return result
@@ -31,27 +18,20 @@ def mean_nonzero(data, axis=0):
 def create_de_genes_dictionary(
     adata: ad.AnnData, 
     n_top_genes: int = 20,
-    uns_key: str = 'rank_genes_groups_cov_all' # AnnData에 저장된 실제 키 이름 사용
+    uns_key: str = 'rank_genes_groups_cov_all'
 ) -> Dict:
     print(f"INFO: Creating DE genes dictionary from 'adata.uns[{uns_key}]'...")
     if uns_key not in adata.uns:
         raise KeyError(f"'{uns_key}' 키를 adata.uns에서 찾을 수 없습니다.")
 
-    # 유전자 이름을 인덱스로 변환하기 위한 맵 생성
     gene_to_idx = {gene: i for i, gene in enumerate(adata.var_names)}
     
-    # anndata에 저장된 DEG 결과 딕셔너리를 직접 가져옵니다.
     deg_results = adata.uns[uns_key]
     de_genes_dict = {}
 
-    # deg_results의 키(group)와 값(top_gene_names)을 직접 순회합니다.
     for group, top_gene_names in deg_results.items():
-        # 이미 정렬된 유전자 이름 리스트이므로 상위 n개만 선택합니다.
         selected_genes = top_gene_names[:n_top_genes]
-        
-        # 유전자 이름을 인덱스로 변환합니다.
         gene_indices = [gene_to_idx[gene] for gene in selected_genes if gene in gene_to_idx]
-        
         de_genes_dict[group] = gene_indices
     
     print(f"INFO: Dictionary created for {len(de_genes_dict)} conditions.")
@@ -62,7 +42,6 @@ def create_results_from_anndata(
     adata_truth: ad.AnnData,
     de_genes_dict: Dict
 ) -> Dict:
-    """두 AnnData로부터 분석에 필요한 test_res 딕셔너리를 생성합니다 (eval_perturb 대체)."""
 
     adata_pred = adata_pred[adata_pred.obs.sort_values(by='condition', ascending=False).index].copy()
     adata_truth = adata_truth[adata_truth.obs.sort_values(by='condition', ascending=False).index].copy()
@@ -99,9 +78,6 @@ def create_results_from_anndata(
     return results
 
 def compute_metrics(results: Dict) -> tuple[Dict, Dict]:
-    """
-    주어진 results 딕셔너리로부터 기본 메트릭(MSE, Pearson)을 계산합니다.
-    """
     print("INFO: Computing basic metrics (MSE, Pearson)...")
     metrics_pert = {}
     
@@ -116,7 +92,6 @@ def compute_metrics(results: Dict) -> tuple[Dict, Dict]:
     for pert in np.unique(results['pert_cat']):
         metrics_pert[pert] = {}
         
-        # 전체 유전자에 대한 인덱스
         p_idx = np.where(results['pert_cat'] == pert)[0]
         if len(p_idx) == 0:
             continue
@@ -124,13 +99,11 @@ def compute_metrics(results: Dict) -> tuple[Dict, Dict]:
         pred_pert_mean = mean_nonzero(results['pred'][p_idx], axis=0)
         truth_pert_mean = mean_nonzero(results['truth'][p_idx], axis=0)
 
-        # 전체 유전자에 대한 메트릭 계산
         for m, fct in metric2fct.items():
             val = fct(truth_pert_mean, pred_pert_mean)
             metrics_pert[pert][m] = val if not np.isnan(val) else 0
             metrics_agg[m].append(metrics_pert[pert][m])
 
-        # DE 유전자에 대한 메트릭 계산
         if pert.lower() != 'control' and 'pert_cat_de' in results:
             p_idx_de = np.where(results['pert_cat_de'] == pert)[0]
 
@@ -450,8 +423,8 @@ def deeper_analysis(adata: ad.AnnData, test_res: Dict, ctrl_expression: np.ndarr
     return pert_metric
 
 def non_dropout_analysis(adata: ad.AnnData, test_res: Dict, ctrl_expression: np.ndarray, control_pert: str,
-    uns_key_de: str = 'top_non_dropout',    # non dropout DE 유전자 이름 리스트 (Ranked)
-    uns_key_all_idx: str = 'non_dropout_gene_idx'   # 전체 Non-dropout 유전자 인덱스 리스트
+    uns_key_de: str = 'top_non_dropout',
+    uns_key_all_idx: str = 'non_dropout_gene_idx'
 )-> Dict:
     metric2fct = {
            'pearson': pearsonr,

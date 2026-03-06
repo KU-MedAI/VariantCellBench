@@ -29,13 +29,13 @@ import sys
 sys.path.append(os.path.abspath("../src"))
 
 # Import project modules from src
-from config import *
-from data import *
-from emb_data import *
-from network import *
-from result import *
-from variant import *
-from utils import *
+from models.GEARS.src.config import *
+from models.GEARS.src.data import *
+from models.GEARS.src.emb_data import *
+from models.GEARS.src.network import *
+from models.GEARS.src.result import *
+from models.GEARS.src.variant import *
+from models.GEARS.src.utils import *
 
 
 config = {

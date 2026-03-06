@@ -22,7 +22,6 @@ from torch_geometric.loader import DataLoader
 import wandb
 import anndata
 
-# scGPT 관련 import (환경에 맞게 경로 설정 필요)
 sys.path.insert(0, "../")
 import scgpt as scg
 from scgpt.model import TransformerGenerator
@@ -95,11 +94,9 @@ def train_epoch(model, train_loader, optimizer, scaler, scheduler, device, n_gen
                     ori_gene_values.nonzero()[:, 1].flatten().unique().sort()[0]
                 )
             
-            # 1. Vocab에 있는 유전자만 필터링
             is_matched_mask = (gene_ids_in_vocab_tensor[initial_candidate_ids] >= 0)
             filtered_candidate_ids = initial_candidate_ids[is_matched_mask]
 
-            # 2. TP53 강제 포함 로직
             tp53_id_scalar = tp53_raw_id.item()
             is_tp53_in_pool = (filtered_candidate_ids == tp53_id_scalar).any()
 
@@ -134,7 +131,6 @@ def train_epoch(model, train_loader, optimizer, scaler, scheduler, device, n_gen
                 input_values, dtype=torch.bool, device=device
             )
 
-            # Variant embedding lookup
             pert_names = batch_data.pert
             variant_ids_list = [variant_vocab[name.split("+")[0]] for name in pert_names]
             variant_ids_tensor = torch.tensor(variant_ids_list, dtype=torch.long)
@@ -156,7 +152,6 @@ def train_epoch(model, train_loader, optimizer, scaler, scheduler, device, n_gen
             loss = raw_loss
             loss_mse = raw_loss.detach()
 
-            # DE-only loss
             gene_id_map = {gid.item(): idx for idx, gid in enumerate(input_gene_ids)}
             de_values_pred = []
             de_values_true = []
@@ -265,7 +260,6 @@ def validate(model, val_loader, device, n_genes, tp53_raw_id, gene_ids_in_vocab,
             pert_flags = x[:, 1].long().view(batch_size, n_genes)
             target_gene_values = batch_data.y
 
-            # Sampling logic (same as train)
             initial_candidate_ids = torch.arange(n_genes, device=device, dtype=torch.long)
             is_matched_mask = (gene_ids_in_vocab_tensor[initial_candidate_ids] >= 0)
             filtered_candidate_ids = initial_candidate_ids[is_matched_mask]
@@ -331,16 +325,11 @@ def validate(model, val_loader, device, n_genes, tp53_raw_id, gene_ids_in_vocab,
     loss_de = F.mse_loss(all_de_pred, all_de_truth).item()
     return avg_val_loss, loss_de
 
-# =============================================================================
-# Main Execution
-# =============================================================================
-
 def main(args):
     set_seed(args.seed)
     device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    # --- Directory Setup ---
     save_dir = Path(f"{args.save_root}/")
     save_dir.mkdir(parents=True, exist_ok=True)
     print(f"Saving checkpoints to {save_dir}")
@@ -349,7 +338,6 @@ def main(args):
     scg.utils.add_file_handler(logger, save_dir / "run.log")
     logger.info(f"Running on {time.strftime('%Y-%m-%d %H:%M:%S')}")
 
-    # --- Data Loading ---
     print(f"Loading data from {args.dataloader_path}...")
     try:
         with open(args.dataloader_path, 'rb') as f:
@@ -365,7 +353,6 @@ def main(args):
     n_genes = len(gene_names)
     gene_to_idx = {g: i for i, g in enumerate(gene_names)}
 
-    # Apply x tensor to dataloaders
     print("Building expression + binary perturbation inputs...")
     x_tensor_list = build_expr_binarypert_x_list(adata, gene_to_idx, gene_names)
     
@@ -377,7 +364,6 @@ def main(args):
 
     pert_data = FakePertData(dataloader_dict, adata)
 
-    # --- Model & Vocab Setup ---
     special_tokens = [args.pad_token, "<cls>", "<eoc>"]
     
     if args.load_model is not None:
@@ -399,7 +385,6 @@ def main(args):
         
         genes = pert_data.adata.var["gene_name"].tolist()
         
-        # Load Model Config
         with open(model_config_file, "r") as f:
             model_configs = json.load(f)
         
@@ -409,7 +394,6 @@ def main(args):
         nlayers = model_configs["nlayers"]
         n_layers_cls = model_configs["n_layers_cls"]
     else:
-        # Fallback if no pretrained model
         genes = pert_data.adata.var["gene_name"].tolist()
         vocab = Vocab(VocabPybind(genes + special_tokens, None))
         embsize = args.embsize
@@ -421,7 +405,6 @@ def main(args):
     vocab.set_default_index(vocab["<pad>"])
     gene_ids = np.array([vocab[gene] if gene in vocab else vocab["<pad>"] for gene in genes], dtype=int)
 
-    # TP53 Index
     try:
         tp53_raw_id_int = genes.index('TP53')
         print(f"✅ 'TP53' raw index: {tp53_raw_id_int}")
@@ -429,32 +412,25 @@ def main(args):
         raise ValueError("Error: 'TP53' not found in gene list.")
     tp53_raw_id = torch.tensor([tp53_raw_id_int], device=device)
 
-    # --- Variant Embeddings (Updated for ALT/DIFF dict support) ---
     print(f"Loading variant embeddings from {args.pkl_path}...")
     print(f"Using embedding key: {args.embedding_key}")
-    
-    # 1. adata.obs['condition']에서 Variant 목록 추출
+
     unique_conditions = adata.obs['condition'].unique().tolist()
     variant_list_full_names = []
     
     for cond in unique_conditions:
         if cond == 'ctrl':
             continue
-        # '+ctrl' 접미사 제거
         variant_name = cond.split('+')[0]
         variant_list_full_names.append(variant_name)
     
-    # 중복 제거 및 정렬
     variant_list_full_names = sorted(list(set(variant_list_full_names)))
     print(f"✅ Extracted {len(variant_list_full_names)} variants from adata.")
 
-    # 2. Short name -> Full name 매핑
     short_to_full_map = {name.split('~')[1]: name for name in variant_list_full_names}
-    
-    # 3. Vocab 생성
+
     variant_vocab = OrderedDict([("<pad>", 0), ("ctrl", 1), ("REF", 2)] + [(v, i + 3) for i, v in enumerate(variant_list_full_names)])
-    
-    # 4. Pickle 캐시 로드
+
     with open(args.pkl_path, "rb") as f:
         cache = pickle.load(f)
         
@@ -462,22 +438,18 @@ def main(args):
     GENE_TARGET = "TP53" 
     embedding_dim = None
 
-    # 5. 임베딩 처리 (Dictionary Access)
     for (gene, variant_short_name), emb_dict in cache.items():
         if gene == GENE_TARGET:
             if variant_short_name in short_to_full_map:
                 full_name = short_to_full_map[variant_short_name]
-                
-                # Check if the requested key exists (ALT or DIFF)
+
                 if args.embedding_key in emb_dict:
                     raw_vector = emb_dict[args.embedding_key]
-                    
-                    # Convert list/array to tensor
+
                     embedding_tensor = torch.tensor(raw_vector).float()
                     
                     processed_embeddings[full_name] = embedding_tensor
-                    
-                    # Set dimension from first valid embedding found
+
                     if embedding_dim is None:
                         embedding_dim = embedding_tensor.shape[0]
                 else:
@@ -488,16 +460,14 @@ def main(args):
     
     print(f"Detected embedding dimension: {embedding_dim}")
 
-    # Special tokens initialization (Zero vectors)
     processed_embeddings["<pad>"] = torch.zeros(embedding_dim)
     processed_embeddings["ctrl"] = torch.zeros(embedding_dim)
-    processed_embeddings["REF"] = torch.zeros(embedding_dim) # Handle REF as zero if not in cache or needed
+    processed_embeddings["REF"] = torch.zeros(embedding_dim)
     
-    # 6. Vocab 순서대로 리스트 생성
     variant_emb_list = [None] * len(variant_vocab)
     for name, idx in variant_vocab.items():
         if name not in processed_embeddings:
-            # If REF or ctrl is missing from processed (likely handled above), fill with zero
+
             if name in ['REF', 'ctrl', '<pad>']:
                  variant_emb_list[idx] = torch.zeros(embedding_dim)
             else:
@@ -506,7 +476,6 @@ def main(args):
         else:
             variant_emb_list[idx] = processed_embeddings[name]
     
-    # 7. Stack & Projection (MLP)
     variant_embs_cpu = torch.stack(variant_emb_list)
     projector = nn.Linear(embedding_dim, embsize).to(device)
     
@@ -515,7 +484,6 @@ def main(args):
     
     print(f"✅ Variant embeddings prepared & projected. Shape: {variant_embs_proj.shape}")
 
-    # --- Initialize Model ---
     ntokens = len(vocab)
     model = TransformerGenerator(
         ntokens, embsize, nhead, d_hid, nlayers,
@@ -528,7 +496,6 @@ def main(args):
     if args.load_model is not None:
         model_dict = model.state_dict()
         pretrained_dict = torch.load(model_file)
-        # Load params with prefix match, excluding Wqkv if needed (as per notebook)
         pretrained_dict = {
             k: v for k, v in pretrained_dict.items()
             if any([k.startswith(prefix) for prefix in args.load_param_prefixs])
@@ -539,8 +506,6 @@ def main(args):
         logger.info("✅ Pretrained model weights loaded.")
     
     model.to(device)
-
-    # --- Optimizer & WandB ---
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.schedule_interval, gamma=0.9)
     scaler = torch.cuda.amp.GradScaler(enabled=args.amp)
@@ -552,12 +517,11 @@ def main(args):
         reinit=True
     )
 
-    # --- Training Loop ---
     best_val_corr = 0
     patience = 0
     
     for epoch in range(1, args.epochs + 1):
-        args.current_epoch = epoch # Helper for logging
+        args.current_epoch = epoch
         train_loader = pert_data.dataloader_dict["train_loader"]
         valid_loader = pert_data.dataloader_dict["val_loader"]
 
@@ -567,7 +531,6 @@ def main(args):
             variant_vocab, variant_embs_proj, args
         )
 
-        # Validation
         val_res = eval_perturb(
             valid_loader, model, device, args, n_genes, tp53_raw_id, 
             gene_ids, variant_vocab, variant_embs_proj
@@ -615,18 +578,15 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train scGPT with Variant Perturbations")
 
-    # Data Paths
     parser.add_argument("--dataloader_path", type=str, required=True, help="Path to dataloader.pkl")
     parser.add_argument("--adata_path", type=str, required=True, help="Path to .h5ad file")
     parser.add_argument("--pkl_path", type=str, required=True, help="Path to embedding pickle")
     parser.add_argument("--save_root", type=str, default="./ck", help="Root directory for checkpoints")
     parser.add_argument("--load_model", type=str, default="../save/scGPT_human", help="Path to pretrained scGPT")
 
-    # Arguments for Embedding Selection
     parser.add_argument("--embedding_key", type=str, default="ALT", choices=["ALT", "DIFF", "REF"], 
                         help="Key to extract from embedding dict (e.g., ALT, DIFF)")
 
-    # Configs
     parser.add_argument("--data_name", type=str, default="kim2023_hct116", help="Name of dataset")
     parser.add_argument("--emb_name", type=str, default="protT5", help="Embedding type name")
     parser.add_argument("--seed", type=int, default=43)
@@ -635,8 +595,7 @@ if __name__ == "__main__":
     parser.add_argument("--pert_pad_id", type=int, default=0)
     parser.add_argument("--include_zero_gene", type=str, default="all")
     parser.add_argument("--max_seq_len", type=int, default=1536)
-    
-    # Training Params
+
     parser.add_argument("--epochs", type=int, default=1000)
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--lr", type=float, default=1e-4)
@@ -646,24 +605,20 @@ if __name__ == "__main__":
     parser.add_argument("--amp", action="store_true", default=True)
     parser.add_argument("--dropout", type=float, default=0.0)
 
-    # Model Params
     parser.add_argument("--embsize", type=int, default=512)
     parser.add_argument("--d_hid", type=int, default=512)
     parser.add_argument("--nhead", type=int, default=8)
     parser.add_argument("--nlayers", type=int, default=12)
     parser.add_argument("--n_layers_cls", type=int, default=3)
-    
-    # Objectives
+
     parser.add_argument("--MLM", action="store_true", default=True)
     parser.add_argument("--CLS", action="store_true", default=False)
     parser.add_argument("--CCE", action="store_true", default=False)
     parser.add_argument("--MVC", action="store_true", default=False)
     parser.add_argument("--ECS", action="store_true", default=False)
 
-    # WandB
     parser.add_argument("--wandb_project", type=str, default="scGPT_variant_training")
 
-    # Misc
     parser.add_argument("--load_param_prefixs", nargs="+", default=["encoder", "value_encoder", "transformer_encoder"])
 
     args = parser.parse_args()

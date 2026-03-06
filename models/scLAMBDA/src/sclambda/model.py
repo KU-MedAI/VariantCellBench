@@ -62,24 +62,19 @@ class Model(object):
 
         # compute perturbation embeddings
         print("Computing %s-dimentisonal perturbation embeddings for %s cells..." % (self.p_dim, adata.shape[0]))
-        # 1. 조건별 임베딩을 저장할 임시 딕셔너리 (Lookup Table) 생성
         self.pert_emb_cells = np.zeros((self.adata.shape[0], self.p_dim))
-        self.pert_emb = {}  # 조건별 딕셔너리
+        self.pert_emb = {}
         
         unique_conditions = np.unique(self.adata.obs['condition'].values)
 
-        # 2. 조건별 루프 및 할당
         for i in tqdm(unique_conditions):
-            # ---------------------------------------------------------
-            # (기존 로직: i에 해당하는 임베딩 벡터 emb_vector를 구하는 과정)
-            # Case A: Control
             if i == 'ctrl':
                 emb_vector = np.zeros(self.p_dim)
             else:
                 # Case B: Variant parsing
                 parts = i.split('+')
                 valid_variants = [part for part in parts if part != 'ctrl']
-                emb_vector = np.zeros(self.p_dim) # 기본값
+                emb_vector = np.zeros(self.p_dim)
                 
                 if valid_variants:
                     target_variant = valid_variants[0]
@@ -96,19 +91,15 @@ class Model(object):
                     except ValueError:
                         pass
             mask = (self.adata.obs['condition'].values == i)
-            if np.sum(mask) > 0: # 해당 조건의 세포가 하나라도 있을 때만 실행
+            if np.sum(mask) > 0:
                 self.pert_emb_cells[mask] = emb_vector.reshape(1, -1)
-            
-            # 딕셔너리 저장
             self.pert_emb[i] = emb_vector
-
-        # 3. 최종 결과를 obsm에 저장
         self.adata.obsm['pert_emb'] = self.pert_emb_cells
         print("Embeddings assigned successfully.")
 
         # control cells
         ctrl_x = adata[adata.obs['condition'].values == 'ctrl'].X
-        self.ctrl_mean = np.mean(ctrl_x, axis=0)    # 전체 유전자에 대한 대조군 평균 발현량
+        self.ctrl_mean = np.mean(ctrl_x, axis=0)
         self.ctrl_x = torch.from_numpy(ctrl_x - self.ctrl_mean.reshape(1, -1)).float().to(self.device)
         self.adata.X = self.adata.X - self.ctrl_mean.reshape(1, -1)
 
@@ -145,7 +136,6 @@ class Model(object):
 
     def train(self, retrain=False):
         if not retrain:
-            # retrain이 아니면 모델을 새로 생성
             self.Net = Net(x_dim = self.x_dim, p_dim = self.p_dim, 
                            latent_dim = self.latent_dim, hidden_dim = self.hidden_dim)
         params = list(self.Net.Encoder_x.parameters())+list(self.Net.Encoder_p.parameters())+list(self.Net.Decoder_x.parameters())+list(self.Net.Decoder_p.parameters())
@@ -162,13 +152,6 @@ class Model(object):
                 self.Net.eval()
                 corr_ls = []
                 for i in self.pert_val:
-                    '''
-                    if self.multi_gene:
-                        genes = i.split('+')
-                        pert_emb_p = self.gene_emb[genes[0]] + self.gene_emb[genes[1]]
-                    else:
-                        pert_emb_p = self.pert_emb[i]
-                    '''
                     if i not in self.pert_emb:
                         print(f"Warning: Pre-calculated embedding not found for validation condition '{i}'. Skipping.")
                         continue
@@ -240,26 +223,21 @@ class Model(object):
                         
                         # Pass the data through the model
                         x_hat_val, p_hat_val, mean_z_val, log_var_z_val, s_val = self.Net(self.ctrl_x, val_p)
-                        
-                        # 검증 손실 계산
+
                         index_marginal_val = np.random.choice(np.arange(len(self.train_data)), size=self.ctrl_x.shape[0])
                         p_marginal_val = self.train_data.p[index_marginal_val].to(self.device) 
                         s_marginal_val = self.Net.Encoder_p(p_marginal_val)
                         val_loss = self.loss_function(self.ctrl_x, x_hat_val, val_p, p_hat_val, mean_z_val, log_var_z_val, s_val, s_marginal_val, T=self.Net.MINE)
                         val_loss_ls.append(val_loss.item()) 
-                        
-                        # 상관계수 계산
+
                         x_hat_mean_val = np.mean(x_hat_val.detach().cpu().numpy(), axis=0)
                         corr = np.corrcoef(x_hat_mean_val, self.pert_delta[i])[0, 1]
                         corr_ls.append(corr)
                     avg_val_loss = np.mean(val_loss_ls) if val_loss_ls else float('nan')
                     val_loss_history.append(avg_val_loss)
-                    # >>>-------------------------->>>
                     # Calculate and print the average validation correlation
                     corr_val = np.mean(corr_ls)
                     print("Validation correlation delta %.5f" % corr_val)
-
-                    # --- W&B 로깅 딕셔너리에 검증 결과 추가 ---
                     log_dict["val_loss"] = avg_val_loss
                     log_dict["val_correlation"] = corr_val
                     
@@ -275,7 +253,6 @@ class Model(object):
                     # If no validation is performed, save the final model
                     if epoch == (self.training_epochs-1):
                         self.model_best = copy.deepcopy(self.Net)
-            # --- 매 에포크마다 W&B에 로깅 ---
             if self.wandb_run:
                 self.wandb_run.log(log_dict)
         print("Finish training.")
@@ -297,26 +274,21 @@ class Model(object):
                 ):
         self.Net.eval()
         res = {} 
-         # Ensure pert_test is always a list
         if isinstance(pert_test, str):
             pert_test = [pert_test]
         
         for i in pert_test:
-            # __init__에서 계산된 임베딩을 직접 가져옴 (ALT 또는 DIFF 결과)
             if i not in self.pert_emb:
                 print(f"Warning: Pre-calculated embedding not found for prediction condition '{i}'. Skipping.")
                 continue
             pert_emb_p = self.pert_emb[i]
-            # Tile the perturbation embedding to match the batch size of control cells
             val_p = torch.from_numpy(np.tile(pert_emb_p, 
                                             (self.ctrl_x.shape[0], 1))).float().to(self.device)
-            
-            # Pass the control cells and perturbation embedding through the model
+
             x_hat, p_hat, mean_z, log_var_z, s = self.Net(self.ctrl_x, val_p)
-            
-            # Format the output based on the return_type
+
             if return_type == 'cells':
-                # Add the control mean back to get the absolute expression values
+
                 adata_pred = ad.AnnData(X=(x_hat.detach().cpu().numpy() + self.ctrl_mean.reshape(1, -1)))
                 adata_pred.obs['condition'] = i
                 res[i] = adata_pred
@@ -335,7 +307,7 @@ class Model(object):
                  ):
         self.Net.eval()
         res = {} 
-        # Ensure pert_test is always a list
+
         if isinstance(pert_test, str):
             pert_test = [pert_test]
         
@@ -344,22 +316,17 @@ class Model(object):
                 print(f"Warning: Pre-calculated embedding not found for generation condition '{i}'. Skipping.")
                 continue
             pert_emb_p = self.pert_emb[i]
-            # Tile the perturbation embedding to match the number of cells to generate
             val_p = torch.from_numpy(np.tile(pert_emb_p, 
                                             (n_cells, 1))).float().to(self.device)
-            
-            # Pass the perturbation embedding through the model's encoder
+
             s = self.Net.Encoder_p(val_p)
-            
-            # Generate random noise for the latent space
+
             z = torch.randn(n_cells, self.latent_dim).to(self.device)
             
-            # Combine noise and perturbation effect and pass through the decoder to generate data
             x_hat = self.Net.Decoder_x(z + s)
-            
-            # Format the output based on the return_type
+
             if return_type == 'cells':
-                # Add the control mean back to get the absolute expression values
+
                 res[i] = x_hat.detach().cpu().numpy() + self.ctrl_mean.reshape(1, -1)
             elif return_type == 'mean':
                 x_hat = np.mean(x_hat.detach().cpu().numpy(), axis=0) + self.ctrl_mean
