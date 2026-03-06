@@ -8,7 +8,7 @@ This repository provides the implementation for fine-tuning and running inferenc
 
 ### Conda Environment (Recommended)
 ```bash
-# Create and activate environment
+# Create and activate environments
 conda create -n genecompass_env python=3.10
 conda activate genecompass_env
 
